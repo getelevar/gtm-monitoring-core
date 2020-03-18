@@ -446,6 +446,18 @@ scenarios:
     runCode(mockData);\n\nassertApi('gtmOnSuccess').wasCalled();\nassertThat(\n  getQueryParams(sentUrls[0],\
     \ 'tag_names')\n).isEqualTo('Facebook%20-%20Initiate%20Checkout,Facebook%20-%20Conversion');\n\
     assertThat(sentUrls.length === 1).isTrue();"
+- name: PIXEL // Missing variable name from error
+  code: "elevar_gtm_errors = [{\n  eventId: 7,\n  dataLayerKey: 'key',\n  variableName:\
+    \ '',\n  error: {\n    message: 'message',\n    value: 'val',\n    condition:\
+    \ 'condition',\n    conditionValue: 'conditionValue'\n  }\n}];\n\nelevar_gtm_tag_info\
+    \ = [{\n\teventId: 7,\n\ttagName: \"Facebook - Initiate Checkout\",\n  \tvariables:\
+    \ ['dlv - Variable 1', 'dlv - Variable 2'],\n}, {\n\teventId: 7,\n  \ttagName:\
+    \ \"Facebook - Conversion\",\n   \tvariables: ['dlv - Variable 1', 'dlv - Variable\
+    \ 2'],\n}];\n\n// Call runCode to run the template's code.\nrunCode(mockData);\n\
+    \nassertApi('gtmOnSuccess').wasCalled();\nassertThat(getQueryParams(sentUrls[0],\
+    \ 'tag_names')).isEqualTo('');\nassertThat(getQueryParams(sentUrls[0], 'variable_name')).isEqualTo('');\n\
+    assertThat(getQueryParams(sentUrls[0], 'error')).isEqualTo('message');\nassertThat(sentUrls.length\
+    \ === 1).isTrue();"
 - name: GENERAL // Debug mode
   code: |-
     mockData.debugMode = true;
