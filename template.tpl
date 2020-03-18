@@ -93,12 +93,14 @@ const getEventName = (eventId, dataLayer) => {
   }, false);
 };
 
-const getTagNames = (tagInfo, eventId, variableName) =>
-	tagInfo
+const getTagNames = (tagInfo, eventId, variableName) => {
+	if (!tagInfo) return [];
+	return tagInfo
       .filter(tag => tag.eventId === eventId)
   	  .filter(tag => tag.variables && tag.variables.length && tag.variables.indexOf(variableName) !== -1)
 	  .map(tag => tag.tagName)
 	  .join(',');
+};
 
 
 // Fires after all tags for the trigger have completed
@@ -458,6 +460,31 @@ scenarios:
     \ 'tag_names')).isEqualTo('');\nassertThat(getQueryParams(sentUrls[0], 'variable_name')).isEqualTo('');\n\
     assertThat(getQueryParams(sentUrls[0], 'error')).isEqualTo('message');\nassertThat(sentUrls.length\
     \ === 1).isTrue();"
+- name: PIXEL // No tag info in window
+  code: |-
+    elevar_gtm_errors = [{
+      eventId: 7,
+      dataLayerKey: 'key',
+      variableName: 'variable name',
+      error: {
+        message: 'message',
+        value: 'val',
+        condition: 'condition',
+        conditionValue: 'conditionValue'
+      }
+    }];
+
+    elevar_gtm_tag_info = undefined;
+
+    // Call runCode to run the template's code.
+    runCode(mockData);
+
+    // Verify that the tag finished successfully.
+    assertApi('gtmOnSuccess').wasCalled();
+    assertThat(sentUrls.length === 1).isTrue();
+    assertThat(getQueryParams(sentUrls[0], 'tag_names')).isEqualTo('');
+    assertThat(getQueryParams(sentUrls[0], 'variable_name')).isEqualTo('variable%20name');
+    assertThat(getQueryParams(sentUrls[0], 'error')).isEqualTo('message');
 - name: GENERAL // Debug mode
   code: |-
     mockData.debugMode = true;
