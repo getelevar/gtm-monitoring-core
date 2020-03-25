@@ -131,7 +131,15 @@ addEventCallback(function(containerId, eventData) {
           "&tag_names=" +
           tagNames +
           "&error=" +
-          errorEvent.error.message
+          errorEvent.error.message +
+          "&dlKey=" +
+          errorEvent.dataLayerKey +
+          "&dlValue=" +
+          errorEvent.error.value +
+          "&cond=" +
+          errorEvent.error.condition +
+          "&condValue=" +
+          errorEvent.error.conditionValue
       );
       
       log('pixel url = ', url);
@@ -334,7 +342,7 @@ ___WEB_PERMISSIONS___
           "key": "environments",
           "value": {
             "type": 1,
-            "string": "all"
+            "string": "debug"
           }
         }
       ]
@@ -388,6 +396,10 @@ scenarios:
     assertThat(getQueryParams(sentUrls[0], 'variable_name')).isEqualTo('dlv%20-%20Variable%201');
     assertThat(getQueryParams(sentUrls[0], 'tag_names')).isEqualTo('Facebook%20-%20Initiate%20Checkout');
     assertThat(getQueryParams(sentUrls[0], 'error')).isEqualTo('message1');
+    assertThat(getQueryParams(sentUrls[0], 'dlKey')).isEqualTo('key1');
+    assertThat(getQueryParams(sentUrls[0], 'dlValue')).isEqualTo('val1');
+    assertThat(getQueryParams(sentUrls[0], 'cond')).isEqualTo('condition1');
+    assertThat(getQueryParams(sentUrls[0], 'condValue')).isEqualTo('conditionValue1');
 
     // -----------------------------------------------------------------
 
@@ -397,6 +409,10 @@ scenarios:
     assertThat(getQueryParams(sentUrls[1], 'variable_name')).isEqualTo('dlv%20-%20Variable%202');
     assertThat(getQueryParams(sentUrls[1], 'tag_names')).isEqualTo('Facebook%20-%20Add%20To%20Cart');
     assertThat(getQueryParams(sentUrls[1], 'error')).isEqualTo('message2');
+    assertThat(getQueryParams(sentUrls[1], 'dlKey')).isEqualTo('key2');
+    assertThat(getQueryParams(sentUrls[1], 'dlValue')).isEqualTo('val2');
+    assertThat(getQueryParams(sentUrls[1], 'cond')).isEqualTo('condition2');
+    assertThat(getQueryParams(sentUrls[1], 'condValue')).isEqualTo('conditionValue2');
 
     // -----------------------------------------------------------------
 
@@ -406,6 +422,10 @@ scenarios:
     assertThat(getQueryParams(sentUrls[2], 'variable_name')).isEqualTo('dlv%20-%20Variable%203');
     assertThat(getQueryParams(sentUrls[2], 'tag_names')).isEqualTo('');
     assertThat(getQueryParams(sentUrls[2], 'error')).isEqualTo('message3');
+    assertThat(getQueryParams(sentUrls[2], 'dlKey')).isEqualTo('key3');
+    assertThat(getQueryParams(sentUrls[2], 'dlValue')).isEqualTo('val3');
+    assertThat(getQueryParams(sentUrls[2], 'cond')).isEqualTo('condition3');
+    assertThat(getQueryParams(sentUrls[2], 'condValue')).isEqualTo('conditionValue3');
 - name: PIXEL // No errors
   code: |-
     elevar_gtm_errors = undefined;
@@ -458,8 +478,10 @@ scenarios:
     \ 2'],\n}];\n\n// Call runCode to run the template's code.\nrunCode(mockData);\n\
     \nassertApi('gtmOnSuccess').wasCalled();\nassertThat(getQueryParams(sentUrls[0],\
     \ 'tag_names')).isEqualTo('');\nassertThat(getQueryParams(sentUrls[0], 'variable_name')).isEqualTo('');\n\
-    assertThat(getQueryParams(sentUrls[0], 'error')).isEqualTo('message');\nassertThat(sentUrls.length\
-    \ === 1).isTrue();"
+    assertThat(getQueryParams(sentUrls[0], 'error')).isEqualTo('message');\nassertThat(getQueryParams(sentUrls[0],\
+    \ 'dlKey')).isEqualTo('key');\nassertThat(getQueryParams(sentUrls[0], 'dlValue')).isEqualTo('val');\n\
+    assertThat(getQueryParams(sentUrls[0], 'cond')).isEqualTo('condition');\nassertThat(getQueryParams(sentUrls[0],\
+    \ 'condValue')).isEqualTo('conditionValue');\nassertThat(sentUrls.length === 1).isTrue();"
 - name: PIXEL // No tag info in window
   code: |-
     elevar_gtm_errors = [{
@@ -485,6 +507,10 @@ scenarios:
     assertThat(getQueryParams(sentUrls[0], 'tag_names')).isEqualTo('');
     assertThat(getQueryParams(sentUrls[0], 'variable_name')).isEqualTo('variable%20name');
     assertThat(getQueryParams(sentUrls[0], 'error')).isEqualTo('message');
+    assertThat(getQueryParams(sentUrls[0], 'dlKey')).isEqualTo('key');
+    assertThat(getQueryParams(sentUrls[0], 'dlValue')).isEqualTo('val');
+    assertThat(getQueryParams(sentUrls[0], 'cond')).isEqualTo('condition');
+    assertThat(getQueryParams(sentUrls[0], 'condValue')).isEqualTo('conditionValue');
 - name: GENERAL // Debug mode
   code: |-
     mockData.debugMode = true;
@@ -502,22 +528,22 @@ setup: "const log = require('logToConsole');\n\nconst sentUrls = [];\n\nlet mock
   \ \"gtm.uniqueEventId\":4\n  },\n  {\n    \"gtm.start\":1578412516344,\n    \"event\"\
   :\"gtm.js\",\n    \"gtm.uniqueEventId\":7\n  },\n  {\n    \"event\":\"gtm.load\"\
   ,\n    \"gtm.uniqueEventId\":11\n  }\n];\n\nlet elevar_gtm_errors = [{\n  eventId:\
-  \ 7,\n  dataLayerKey: 'key',\n  variableName: 'dlv - Variable 1',\n  error: {\n\
-  \    message: 'message1',\n    value: 'val',\n    condition: 'condition',\n    conditionValue:\
-  \ 'conditionValue'\n  }\n}, {\n  eventId: 11,\n  dataLayerKey: 'key',\n  variableName:\
-  \ 'dlv - Variable 2',\n  error: {\n    message: 'message2',\n    value: 'val',\n\
-  \    condition: 'condition',\n    conditionValue: 'conditionValue'\n  }}, {\n  eventId:\
-  \ 11,\n  dataLayerKey: 'key',\n  variableName: 'dlv - Variable 3',\n  error: {\n\
-  \    message: 'message3',\n    value: 'val',\n    condition: 'condition',\n    conditionValue:\
-  \ 'conditionValue'\n  }}];\n\nlet elevar_gtm_tag_info = [{\n\teventId: 7,\n\ttagName:\
-  \ \"Facebook - Initiate Checkout\",\n  \tvariables: ['dlv - Variable 1', 'dlv -\
-  \ Variable 2'],\n}, {\n\teventId: 11,\n  \ttagName: \"Facebook - Add To Cart\",\n\
-  \  \tvariables: ['dlv - Variable 2']\n}];\n\nmock('copyFromWindow', (variableName)\
-  \ => {\n\tswitch(variableName) {\n      case 'elevar_gtm_errors':\n        return\
-  \ elevar_gtm_errors;\n      case 'elevar_gtm_tag_info':\n        return elevar_gtm_tag_info;\n\
-  \      case mockData.dataLayerName:\n        return dataLayer;\n      default:\n\
-  \        log('no object in mock window for variableName: ', variableName);\n   \
-  \ }\n});\n\nmock('addEventCallback', (callback) => {\n  callback('containerId');\n\
+  \ 7,\n  dataLayerKey: 'key1',\n  variableName: 'dlv - Variable 1',\n  error: {\n\
+  \    message: 'message1',\n    value: 'val1',\n    condition: 'condition1',\n  \
+  \  conditionValue: 'conditionValue1'\n  }\n}, {\n  eventId: 11,\n  dataLayerKey:\
+  \ 'key2',\n  variableName: 'dlv - Variable 2',\n  error: {\n    message: 'message2',\n\
+  \    value: 'val2',\n    condition: 'condition2',\n    conditionValue: 'conditionValue2'\n\
+  \  }}, {\n  eventId: 11,\n  dataLayerKey: 'key3',\n  variableName: 'dlv - Variable\
+  \ 3',\n  error: {\n    message: 'message3',\n    value: 'val3',\n    condition:\
+  \ 'condition3',\n    conditionValue: 'conditionValue3'\n  }}];\n\nlet elevar_gtm_tag_info\
+  \ = [{\n\teventId: 7,\n\ttagName: \"Facebook - Initiate Checkout\",\n  \tvariables:\
+  \ ['dlv - Variable 1', 'dlv - Variable 2'],\n}, {\n\teventId: 11,\n  \ttagName:\
+  \ \"Facebook - Add To Cart\",\n  \tvariables: ['dlv - Variable 2']\n}];\n\nmock('copyFromWindow',\
+  \ (variableName) => {\n\tswitch(variableName) {\n      case 'elevar_gtm_errors':\n\
+  \        return elevar_gtm_errors;\n      case 'elevar_gtm_tag_info':\n        return\
+  \ elevar_gtm_tag_info;\n      case mockData.dataLayerName:\n        return dataLayer;\n\
+  \      default:\n        log('no object in mock window for variableName: ', variableName);\n\
+  \    }\n});\n\nmock('addEventCallback', (callback) => {\n  callback('containerId');\n\
   });\n\nmock('sendPixel', (url) => {\n  sentUrls.push(url);\n});\n\n/* ------------\
   \ TEST UTILITY FUNCTIONS ------------ */\n\nconst getQueryParams = (url, key) =>\
   \ {\n\tconst param = url\n      .split('?')[1]\n      .split('&')\n      .map(paramString\
