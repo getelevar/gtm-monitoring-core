@@ -21,42 +21,6 @@ ___TEMPLATE_PARAMETERS___
 
 [
   {
-    "type": "RADIO",
-    "name": "customDataLayer",
-    "displayName": "Is DataLayer object called \"dataLayer\"?",
-    "radioItems": [
-      {
-        "value": true,
-        "displayValue": "Yes"
-      },
-      {
-        "value": false,
-        "displayValue": "No"
-      }
-    ],
-    "simpleValueType": true
-  },
-  {
-    "type": "TEXT",
-    "name": "dataLayerName",
-    "displayName": "Data Layer Object Name",
-    "simpleValueType": true,
-    "help": "The window data layer object name. By default it is \"dataLayer\".",
-    "defaultValue": "dataLayer",
-    "valueValidators": [
-      {
-        "type": "NON_EMPTY"
-      }
-    ],
-    "enablingConditions": [
-      {
-        "paramName": "customDataLayer",
-        "paramValue": false,
-        "type": "EQUALS"
-      }
-    ]
-  },
-  {
     "type": "TEXT",
     "name": "debugMode",
     "displayName": "Debug Mode Variable",
@@ -72,17 +36,17 @@ const addEventCallback = require("addEventCallback");
 const copyFromWindow = require("copyFromWindow");
 const setInWindow = require("setInWindow");
 const sendPixel = require("sendPixel");
-const encodeUriComponent = require("encodeUriComponent");
 const encodeUri = require("encodeUri");
 
 /**
- * This is required even though its not used here
+ * This is required even though it wouldn't be used here
  * because the tests fail without it.
-*/
-const log = require('logToConsole');
+ */
+const log = require("logToConsole");
 
 const VALIDATION_ERRORS = "elevar_gtm_errors";
 const TAG_INFO = "elevar_gtm_tag_info";
+const DATA_LAYER = "dataLayer";
 
 const getEventName = (eventId, dataLayer) => {
   return dataLayer.reduce((item, curr) => {
@@ -94,18 +58,22 @@ const getEventName = (eventId, dataLayer) => {
 };
 
 const getTagNames = (tagInfo, eventId, variableName) => {
-	if (!tagInfo) return [];
-	return tagInfo
-      .filter(tag => tag.eventId === eventId)
-  	  .filter(tag => tag.variables && tag.variables.length && tag.variables.indexOf(variableName) !== -1)
-	  .map(tag => tag.tagName)
-	  .join(',');
+  if (!tagInfo) return [];
+  return tagInfo
+    .filter(tag => tag.eventId === eventId)
+    .filter(
+      tag =>
+        tag.variables &&
+        tag.variables.length &&
+        tag.variables.indexOf(variableName) !== -1
+    )
+    .map(tag => tag.tagName)
+    .join(",");
 };
 
-
 // Fires after all tags for the trigger have completed
-addEventCallback(function(containerId, eventData) {
-  const DATA_LAYER = copyFromWindow(data.dataLayerName ? data.dataLayerName : "dataLayer");
+addEventCallback(function(containerId, _eventData) {
+  const dataLayer = copyFromWindow(DATA_LAYER);
   const errors = copyFromWindow(VALIDATION_ERRORS);
   const tagInfo = copyFromWindow(TAG_INFO);
 
@@ -116,11 +84,15 @@ addEventCallback(function(containerId, eventData) {
   // Send Pixel if there are errors
   if (errors && errors.length > 0) {
     errors.forEach((errorEvent, index) => {
-      const eventName = getEventName(errorEvent.eventId, DATA_LAYER);
-      const tagNames = getTagNames(tagInfo, errorEvent.eventId, errorEvent.variableName);
+      const eventName = getEventName(errorEvent.eventId, dataLayer);
+      const tagNames = getTagNames(
+        tagInfo,
+        errorEvent.eventId,
+        errorEvent.variableName
+      );
 
       let url = encodeUri(
-          "https://monitoring.getelevar.com/track.gif?ctid=" +
+        "https://monitoring.getelevar.com/track.gif?ctid=" +
           containerId +
           "&idx=" +
           index +
@@ -141,8 +113,8 @@ addEventCallback(function(containerId, eventData) {
           "&condValue=" +
           errorEvent.error.conditionValue
       );
-      
-      log('pixel url = ', url);
+
+      log("pixel url = ", url);
       if (!data.debugMode) {
         sendPixel(url);
       }
@@ -151,6 +123,7 @@ addEventCallback(function(containerId, eventData) {
 });
 
 data.gtmOnSuccess();
+
 
 
 ___WEB_PERMISSIONS___
