@@ -5,7 +5,7 @@
   "id": "cvt_temp_public_id",
   "version": 1,
   "securityGroups": [],
-  "displayName": "Elevar - Monitoring Template",
+  "displayName": "Monitoring Pixel / Elevar Monitoring",
   "brand": {
     "id": "brand_dummy",
     "displayName": ""
@@ -48,6 +48,11 @@ const VALIDATION_ERRORS = "elevar_gtm_errors";
 const TAG_INFO = "elevar_gtm_tag_info";
 const DATA_LAYER = "dataLayer";
 
+const onlyUnique = (arr) => {
+  if (!arr) return [];
+  return arr.filter((item, pos) => arr.indexOf(item) == pos);
+};
+
 const getEventName = (eventId, dataLayer) => {
   return dataLayer.reduce((item, curr) => {
     if (!item && curr["gtm.uniqueEventId"] === eventId) {
@@ -57,16 +62,27 @@ const getEventName = (eventId, dataLayer) => {
   }, false);
 };
 
-const getTagNames = (tagInfo, eventId, variableName) => {
-  if (!tagInfo) return [];
-  return tagInfo
+const getTagWithVariable = (tags, eventId, variableName) => {
+  if (!tags) return [];
+  return tags
     .filter(tag => tag.eventId === eventId)
     .filter(
       tag =>
         tag.variables &&
         tag.variables.length &&
         tag.variables.indexOf(variableName) !== -1
-    )
+    );
+};
+
+const getChannels = (tags) => {
+  if (!tags) return [];
+  const channels = tags.map(tag => tag.channel);
+  return onlyUnique(channels).join(",");
+};
+
+const getTagNames = (tags) => {
+  if (!tags) return [];
+  return tags
     .map(tag => tag.tagName)
     .join(",");
 };
@@ -85,11 +101,13 @@ addEventCallback(function(containerId, _eventData) {
   if (errors && errors.length > 0) {
     errors.forEach((errorEvent, index) => {
       const eventName = getEventName(errorEvent.eventId, dataLayer);
-      const tagNames = getTagNames(
+      const tagsUsed = getTagWithVariable(
         tagInfo,
         errorEvent.eventId,
         errorEvent.variableName
       );
+      const channels = getChannels(tagsUsed);
+      const tagNames = getTagNames(tagsUsed);
 
       let url = encodeUri(
         "https://monitoring.getelevar.com/track.gif?ctid=" +
@@ -100,6 +118,8 @@ addEventCallback(function(containerId, _eventData) {
           eventName +
           "&variable_name=" +
           errorEvent.variableName +
+          "&channels=" +
+          channels +
           "&tag_names=" +
           tagNames +
           "&error=" +
@@ -123,7 +143,6 @@ addEventCallback(function(containerId, _eventData) {
 });
 
 data.gtmOnSuccess();
-
 
 
 ___WEB_PERMISSIONS___
@@ -367,6 +386,7 @@ scenarios:
     assertThat(getQueryParams(sentUrls[0], 'idx')).isEqualTo('0');
     assertThat(getQueryParams(sentUrls[0], 'event_name')).isEqualTo('gtm.js');
     assertThat(getQueryParams(sentUrls[0], 'variable_name')).isEqualTo('dlv%20-%20Variable%201');
+    assertThat(getQueryParams(sentUrls[0], 'channels')).isEqualTo('facebook');
     assertThat(getQueryParams(sentUrls[0], 'tag_names')).isEqualTo('Facebook%20-%20Initiate%20Checkout');
     assertThat(getQueryParams(sentUrls[0], 'error')).isEqualTo('message1');
     assertThat(getQueryParams(sentUrls[0], 'dlKey')).isEqualTo('key1');
@@ -378,6 +398,7 @@ scenarios:
 
     assertThat(getQueryParams(sentUrls[1], 'ctid')).isEqualTo('containerId');
     assertThat(getQueryParams(sentUrls[1], 'idx')).isEqualTo('1');
+    assertThat(getQueryParams(sentUrls[1], 'channels')).isEqualTo('');
     assertThat(getQueryParams(sentUrls[1], 'event_name')).isEqualTo('gtm.load');
     assertThat(getQueryParams(sentUrls[1], 'variable_name')).isEqualTo('dlv%20-%20Variable%202');
     assertThat(getQueryParams(sentUrls[1], 'tag_names')).isEqualTo('Facebook%20-%20Add%20To%20Cart');
@@ -391,6 +412,7 @@ scenarios:
 
     assertThat(getQueryParams(sentUrls[2], 'ctid')).isEqualTo('containerId');
     assertThat(getQueryParams(sentUrls[2], 'idx')).isEqualTo('2');
+    assertThat(getQueryParams(sentUrls[2], 'channels')).isEqualTo('');
     assertThat(getQueryParams(sentUrls[2], 'event_name')).isEqualTo('gtm.load');
     assertThat(getQueryParams(sentUrls[2], 'variable_name')).isEqualTo('dlv%20-%20Variable%203');
     assertThat(getQueryParams(sentUrls[2], 'tag_names')).isEqualTo('');
@@ -429,16 +451,19 @@ scenarios:
     assertApi('gtmOnSuccess').wasCalled();
     assertThat(sentUrls.length === 1).isTrue();
     assertThat(getQueryParams(sentUrls[0], 'tag_names')).isEqualTo('');
+    assertThat(getQueryParams(sentUrls[0], 'channels')).isEqualTo('');
     assertThat(getQueryParams(sentUrls[0], 'variable_name')).isEqualTo('dlv%20-%20Variable%201');
 - name: PIXEL // Erroring variable in multiple tags
   code: "elevar_gtm_errors = [{\n  eventId: 7,\n  dataLayerKey: 'key',\n  variableName:\
     \ 'dlv - Variable 1',\n  error: {\n    message: 'message',\n    value: 'val',\n\
     \    condition: 'condition',\n    conditionValue: 'conditionValue'\n  }\n}];\n\
-    \nelevar_gtm_tag_info = [{\n\teventId: 7,\n\ttagName: \"Facebook - Initiate Checkout\"\
-    ,\n  \tvariables: ['dlv - Variable 1', 'dlv - Variable 2'],\n}, {\n\teventId:\
-    \ 7,\n  \ttagName: \"Facebook - Conversion\",\n   \tvariables: ['dlv - Variable\
-    \ 1', 'dlv - Variable 2'],\n}];\n\n// Call runCode to run the template's code.\n\
-    runCode(mockData);\n\nassertApi('gtmOnSuccess').wasCalled();\nassertThat(\n  getQueryParams(sentUrls[0],\
+    \nelevar_gtm_tag_info = [{\n\teventId: 7,\n  \tchannel: 'facebook',\n\ttagName:\
+    \ \"Facebook - Initiate Checkout\",\n  \tvariables: ['dlv - Variable 1', 'dlv\
+    \ - Variable 2'],\n}, {\n\teventId: 7,\n    channel: 'facebook',\n  \ttagName:\
+    \ \"Facebook - Conversion\",\n   \tvariables: ['dlv - Variable 1', 'dlv - Variable\
+    \ 2'],\n}];\n\n// Call runCode to run the template's code.\nrunCode(mockData);\n\
+    \nassertApi('gtmOnSuccess').wasCalled();\nassertThat(getQueryParams(sentUrls[0],\
+    \ 'channels')).isEqualTo('facebook');\nassertThat(\n  getQueryParams(sentUrls[0],\
     \ 'tag_names')\n).isEqualTo('Facebook%20-%20Initiate%20Checkout,Facebook%20-%20Conversion');\n\
     assertThat(sentUrls.length === 1).isTrue();"
 - name: PIXEL // Missing variable name from error
@@ -494,35 +519,123 @@ scenarios:
     assertApi('gtmOnSuccess').wasCalled();
     assertApi('sendPixel').wasNotCalled();
     assertThat(sentUrls.length === 0).isTrue();
-setup: "const log = require('logToConsole');\n\nconst sentUrls = [];\n\nlet mockData\
-  \ = {\n  customDataLayer: false,\n  dataLayerName: 'dataLayer',\n  debugMode: false\n\
-  };\n\nlet dataLayer = [\n  {\n    \"event\":\"gtm.dom\",\n    \"gtm.uniqueEventId\"\
-  :3\n  },\n  {\n    \"gtm.start\":1578412516211,\n    \"event\":\"gtm.js\",\n   \
-  \ \"gtm.uniqueEventId\":4\n  },\n  {\n    \"gtm.start\":1578412516344,\n    \"event\"\
-  :\"gtm.js\",\n    \"gtm.uniqueEventId\":7\n  },\n  {\n    \"event\":\"gtm.load\"\
-  ,\n    \"gtm.uniqueEventId\":11\n  }\n];\n\nlet elevar_gtm_errors = [{\n  eventId:\
-  \ 7,\n  dataLayerKey: 'key1',\n  variableName: 'dlv - Variable 1',\n  error: {\n\
-  \    message: 'message1',\n    value: 'val1',\n    condition: 'condition1',\n  \
-  \  conditionValue: 'conditionValue1'\n  }\n}, {\n  eventId: 11,\n  dataLayerKey:\
-  \ 'key2',\n  variableName: 'dlv - Variable 2',\n  error: {\n    message: 'message2',\n\
-  \    value: 'val2',\n    condition: 'condition2',\n    conditionValue: 'conditionValue2'\n\
-  \  }}, {\n  eventId: 11,\n  dataLayerKey: 'key3',\n  variableName: 'dlv - Variable\
-  \ 3',\n  error: {\n    message: 'message3',\n    value: 'val3',\n    condition:\
-  \ 'condition3',\n    conditionValue: 'conditionValue3'\n  }}];\n\nlet elevar_gtm_tag_info\
-  \ = [{\n\teventId: 7,\n\ttagName: \"Facebook - Initiate Checkout\",\n  \tvariables:\
-  \ ['dlv - Variable 1', 'dlv - Variable 2'],\n}, {\n\teventId: 11,\n  \ttagName:\
-  \ \"Facebook - Add To Cart\",\n  \tvariables: ['dlv - Variable 2']\n}];\n\nmock('copyFromWindow',\
-  \ (variableName) => {\n\tswitch(variableName) {\n      case 'elevar_gtm_errors':\n\
-  \        return elevar_gtm_errors;\n      case 'elevar_gtm_tag_info':\n        return\
-  \ elevar_gtm_tag_info;\n      case mockData.dataLayerName:\n        return dataLayer;\n\
-  \      default:\n        log('no object in mock window for variableName: ', variableName);\n\
-  \    }\n});\n\nmock('addEventCallback', (callback) => {\n  callback('containerId');\n\
-  });\n\nmock('sendPixel', (url) => {\n  sentUrls.push(url);\n});\n\n/* ------------\
-  \ TEST UTILITY FUNCTIONS ------------ */\n\nconst getQueryParams = (url, key) =>\
-  \ {\n\tconst param = url\n      .split('?')[1]\n      .split('&')\n      .map(paramString\
-  \ => {\n      const keyAndVal = paramString.split('=');\n      return {key: keyAndVal[0],\
-  \ val: keyAndVal[1] };\n    }).filter(param => param.key === key)[0];\n \tif (!param)\
-  \ return undefined;\n\treturn param.val;\n};\n"
+setup: |
+  const log = require("logToConsole");
+
+  const sentUrls = [];
+
+  let mockData = {
+    customDataLayer: false,
+    dataLayerName: "dataLayer",
+    debugMode: false
+  };
+
+  let dataLayer = [
+    {
+      event: "gtm.dom",
+      "gtm.uniqueEventId": 3
+    },
+    {
+      "gtm.start": 1578412516211,
+      event: "gtm.js",
+      "gtm.uniqueEventId": 4
+    },
+    {
+      "gtm.start": 1578412516344,
+      event: "gtm.js",
+      "gtm.uniqueEventId": 7
+    },
+    {
+      event: "gtm.load",
+      "gtm.uniqueEventId": 11
+    }
+  ];
+
+  let elevar_gtm_errors = [
+    {
+      eventId: 7,
+      dataLayerKey: "key1",
+      variableName: "dlv - Variable 1",
+      error: {
+        message: "message1",
+        value: "val1",
+        condition: "condition1",
+        conditionValue: "conditionValue1"
+      }
+    },
+    {
+      eventId: 11,
+      dataLayerKey: "key2",
+      variableName: "dlv - Variable 2",
+      error: {
+        message: "message2",
+        value: "val2",
+        condition: "condition2",
+        conditionValue: "conditionValue2"
+      }
+    },
+    {
+      eventId: 11,
+      dataLayerKey: "key3",
+      variableName: "dlv - Variable 3",
+      error: {
+        message: "message3",
+        value: "val3",
+        condition: "condition3",
+        conditionValue: "conditionValue3"
+      }
+    }
+  ];
+
+  let elevar_gtm_tag_info = [
+    {
+      eventId: 7,
+      channel: "facebook",
+      tagName: "Facebook - Initiate Checkout",
+      variables: ["dlv - Variable 1", "dlv - Variable 2"]
+    },
+    {
+      eventId: 11,
+      tagName: "Facebook - Add To Cart",
+      variables: ["dlv - Variable 2"]
+    }
+  ];
+
+  mock("copyFromWindow", variableName => {
+    switch (variableName) {
+      case "elevar_gtm_errors":
+        return elevar_gtm_errors;
+      case "elevar_gtm_tag_info":
+        return elevar_gtm_tag_info;
+      case mockData.dataLayerName:
+        return dataLayer;
+      default:
+        log("no object in mock window for variableName: ", variableName);
+    }
+  });
+
+  mock("addEventCallback", callback => {
+    callback("containerId");
+  });
+
+  mock("sendPixel", url => {
+    sentUrls.push(url);
+  });
+
+  /* ------------ TEST UTILITY FUNCTIONS ------------ */
+
+  const getQueryParams = (url, key) => {
+    const param = url
+      .split("?")[1]
+      .split("&")
+      .map(paramString => {
+        const keyAndVal = paramString.split("=");
+        return { key: keyAndVal[0], val: keyAndVal[1] };
+      })
+      .filter(param => param.key === key)[0];
+    if (!param) return undefined;
+    return param.val;
+  };
 
 
 ___NOTES___
