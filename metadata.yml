@@ -1,2 +1,5 @@
 homepage: "https://www.getelevar.com"
 documentation: "https://github.com/getelevar/gtm-monitoring-core/blob/master/README.md"
+versions:
+  - sha: 77f158f61ea9ef5029e301ec041a93eba0b3504c
+    changeNotes: Initial release.
