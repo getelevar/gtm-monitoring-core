@@ -47,7 +47,8 @@ const addEventCallback = require("addEventCallback");
 const copyFromWindow = require("copyFromWindow");
 const setInWindow = require("setInWindow");
 const sendPixel = require("sendPixel");
-const encodeUri = require("encodeUri");
+const encodeUriComponent = require("encodeUriComponent");
+const getUrl = require("getUrl");
 
 /**
  * This is required even though it wouldn't be used here
@@ -58,6 +59,7 @@ const log = require("logToConsole");
 const VALIDATION_ERRORS = "elevar_gtm_errors";
 const TAG_INFO = "elevar_gtm_tag_info";
 const DATA_LAYER = "dataLayer";
+const PAGE_URL = getUrl();
 
 const onlyUnique = (arr) => {
   if (!arr) return [];
@@ -127,30 +129,28 @@ addEventCallback(function(containerId, _eventData) {
       const channels = getChannels(tagsUsed);
       const tagNames = getTagNames(tagsUsed);
 
-      let url = encodeUri(
-        "https://monitoring.getelevar.com/track.gif?ctid=" +
+      let url = "https://monitoring.getelevar.com/track.gif?ctid=" +
           containerId +
           "&idx=" +
           index +
           "&event_name=" +
-          eventName +
+          encodeUriComponent(eventName) +
           "&variable_name=" +
-          errorEvent.variableName +
+          encodeUriComponent(errorEvent.variableName) +
           "&channels=" +
-          channels +
+          encodeUriComponent(channels) +
           "&tag_names=" +
-          tagNames +
-          "&error=" +
-          errorEvent.error.message +
+          encodeUriComponent(tagNames) +
           "&dlKey=" +
           errorEvent.dataLayerKey +
           "&dlValue=" +
-          errorEvent.error.value +
+          encodeUriComponent(errorEvent.error.value) +
           "&cond=" +
           errorEvent.error.condition +
           "&condValue=" +
-          errorEvent.error.conditionValue
-      );
+          encodeUriComponent(errorEvent.error.conditionValue) +
+          "&url=" +
+          encodeUriComponent(PAGE_URL);
 
       log("pixel url = ", url);
       if (!data.debugMode) {
@@ -361,6 +361,31 @@ ___WEB_PERMISSIONS___
       "isEditedByUser": true
     },
     "isRequired": true
+  },
+  {
+    "instance": {
+      "key": {
+        "publicId": "get_url",
+        "versionId": "1"
+      },
+      "param": [
+        {
+          "key": "urlParts",
+          "value": {
+            "type": 1,
+            "string": "any"
+          }
+        },
+        {
+          "key": "queriesAllowed",
+          "value": {
+            "type": 1,
+            "string": "any"
+          }
+        }
+      ]
+    },
+    "isRequired": true
   }
 ]
 
@@ -400,13 +425,12 @@ scenarios:
 
     // -----------------------------------------------------------------
 
-    assertThat(getQueryParams(sentUrls[0], 'ctid')).isEqualTo('containerId');
+    assertThat(getQueryParams(sentUrls[0], 'ctid')).isEqualTo('GTM-12345678');
     assertThat(getQueryParams(sentUrls[0], 'idx')).isEqualTo('0');
     assertThat(getQueryParams(sentUrls[0], 'event_name')).isEqualTo('gtm.js');
     assertThat(getQueryParams(sentUrls[0], 'variable_name')).isEqualTo('dlv%20-%20Variable%201');
     assertThat(getQueryParams(sentUrls[0], 'channels')).isEqualTo('facebook');
     assertThat(getQueryParams(sentUrls[0], 'tag_names')).isEqualTo('Facebook%20-%20Initiate%20Checkout');
-    assertThat(getQueryParams(sentUrls[0], 'error')).isEqualTo('message1');
     assertThat(getQueryParams(sentUrls[0], 'dlKey')).isEqualTo('key1');
     assertThat(getQueryParams(sentUrls[0], 'dlValue')).isEqualTo('val1');
     assertThat(getQueryParams(sentUrls[0], 'cond')).isEqualTo('condition1');
@@ -414,13 +438,12 @@ scenarios:
 
     // -----------------------------------------------------------------
 
-    assertThat(getQueryParams(sentUrls[1], 'ctid')).isEqualTo('containerId');
+    assertThat(getQueryParams(sentUrls[1], 'ctid')).isEqualTo('GTM-12345678');
     assertThat(getQueryParams(sentUrls[1], 'idx')).isEqualTo('1');
     assertThat(getQueryParams(sentUrls[1], 'channels')).isEqualTo('');
     assertThat(getQueryParams(sentUrls[1], 'event_name')).isEqualTo('gtm.load');
     assertThat(getQueryParams(sentUrls[1], 'variable_name')).isEqualTo('dlv%20-%20Variable%202');
     assertThat(getQueryParams(sentUrls[1], 'tag_names')).isEqualTo('Facebook%20-%20Add%20To%20Cart');
-    assertThat(getQueryParams(sentUrls[1], 'error')).isEqualTo('message2');
     assertThat(getQueryParams(sentUrls[1], 'dlKey')).isEqualTo('key2');
     assertThat(getQueryParams(sentUrls[1], 'dlValue')).isEqualTo('val2');
     assertThat(getQueryParams(sentUrls[1], 'cond')).isEqualTo('condition2');
@@ -428,13 +451,12 @@ scenarios:
 
     // -----------------------------------------------------------------
 
-    assertThat(getQueryParams(sentUrls[2], 'ctid')).isEqualTo('containerId');
+    assertThat(getQueryParams(sentUrls[2], 'ctid')).isEqualTo('GTM-12345678');
     assertThat(getQueryParams(sentUrls[2], 'idx')).isEqualTo('2');
     assertThat(getQueryParams(sentUrls[2], 'channels')).isEqualTo('');
     assertThat(getQueryParams(sentUrls[2], 'event_name')).isEqualTo('gtm.load');
     assertThat(getQueryParams(sentUrls[2], 'variable_name')).isEqualTo('dlv%20-%20Variable%203');
     assertThat(getQueryParams(sentUrls[2], 'tag_names')).isEqualTo('');
-    assertThat(getQueryParams(sentUrls[2], 'error')).isEqualTo('message3');
     assertThat(getQueryParams(sentUrls[2], 'dlKey')).isEqualTo('key3');
     assertThat(getQueryParams(sentUrls[2], 'dlValue')).isEqualTo('val3');
     assertThat(getQueryParams(sentUrls[2], 'cond')).isEqualTo('condition3');
@@ -482,7 +504,7 @@ scenarios:
     \ 2'],\n}];\n\n// Call runCode to run the template's code.\nrunCode(mockData);\n\
     \nassertApi('gtmOnSuccess').wasCalled();\nassertThat(getQueryParams(sentUrls[0],\
     \ 'channels')).isEqualTo('facebook');\nassertThat(\n  getQueryParams(sentUrls[0],\
-    \ 'tag_names')\n).isEqualTo('Facebook%20-%20Initiate%20Checkout,Facebook%20-%20Conversion');\n\
+    \ 'tag_names')\n).isEqualTo('Facebook%20-%20Initiate%20Checkout%2CFacebook%20-%20Conversion');\n\
     assertThat(sentUrls.length === 1).isTrue();"
 - name: PIXEL // Missing variable name from error
   code: "elevar_gtm_errors = [{\n  eventId: 7,\n  dataLayerKey: 'key',\n  variableName:\
@@ -494,10 +516,10 @@ scenarios:
     \ 2'],\n}];\n\n// Call runCode to run the template's code.\nrunCode(mockData);\n\
     \nassertApi('gtmOnSuccess').wasCalled();\nassertThat(getQueryParams(sentUrls[0],\
     \ 'tag_names')).isEqualTo('');\nassertThat(getQueryParams(sentUrls[0], 'variable_name')).isEqualTo('');\n\
-    assertThat(getQueryParams(sentUrls[0], 'error')).isEqualTo('message');\nassertThat(getQueryParams(sentUrls[0],\
-    \ 'dlKey')).isEqualTo('key');\nassertThat(getQueryParams(sentUrls[0], 'dlValue')).isEqualTo('val');\n\
-    assertThat(getQueryParams(sentUrls[0], 'cond')).isEqualTo('condition');\nassertThat(getQueryParams(sentUrls[0],\
-    \ 'condValue')).isEqualTo('conditionValue');\nassertThat(sentUrls.length === 1).isTrue();"
+    assertThat(getQueryParams(sentUrls[0], 'dlKey')).isEqualTo('key');\nassertThat(getQueryParams(sentUrls[0],\
+    \ 'dlValue')).isEqualTo('val');\nassertThat(getQueryParams(sentUrls[0], 'cond')).isEqualTo('condition');\n\
+    assertThat(getQueryParams(sentUrls[0], 'condValue')).isEqualTo('conditionValue');\n\
+    assertThat(sentUrls.length === 1).isTrue();"
 - name: PIXEL // No tag info in window
   code: |-
     elevar_gtm_errors = [{
@@ -522,7 +544,6 @@ scenarios:
     assertThat(sentUrls.length === 1).isTrue();
     assertThat(getQueryParams(sentUrls[0], 'tag_names')).isEqualTo('');
     assertThat(getQueryParams(sentUrls[0], 'variable_name')).isEqualTo('variable%20name');
-    assertThat(getQueryParams(sentUrls[0], 'error')).isEqualTo('message');
     assertThat(getQueryParams(sentUrls[0], 'dlKey')).isEqualTo('key');
     assertThat(getQueryParams(sentUrls[0], 'dlValue')).isEqualTo('val');
     assertThat(getQueryParams(sentUrls[0], 'cond')).isEqualTo('condition');
@@ -537,123 +558,39 @@ scenarios:
     assertApi('gtmOnSuccess').wasCalled();
     assertApi('sendPixel').wasNotCalled();
     assertThat(sentUrls.length === 0).isTrue();
-setup: |-
-  const log = require("logToConsole");
-
-  const sentUrls = [];
-
-  let mockData = {
-    customDataLayer: false,
-    dataLayerName: "dataLayer",
-    debugMode: false
-  };
-
-  let dataLayer = [
-    {
-      event: "gtm.dom",
-      "gtm.uniqueEventId": 3
-    },
-    {
-      "gtm.start": 1578412516211,
-      event: "gtm.js",
-      "gtm.uniqueEventId": 4
-    },
-    {
-      "gtm.start": 1578412516344,
-      event: "gtm.js",
-      "gtm.uniqueEventId": 7
-    },
-    {
-      event: "gtm.load",
-      "gtm.uniqueEventId": 11
-    }
-  ];
-
-  let elevar_gtm_errors = [
-    {
-      eventId: 7,
-      dataLayerKey: "key1",
-      variableName: "dlv - Variable 1",
-      error: {
-        message: "message1",
-        value: "val1",
-        condition: "condition1",
-        conditionValue: "conditionValue1"
-      }
-    },
-    {
-      eventId: 11,
-      dataLayerKey: "key2",
-      variableName: "dlv - Variable 2",
-      error: {
-        message: "message2",
-        value: "val2",
-        condition: "condition2",
-        conditionValue: "conditionValue2"
-      }
-    },
-    {
-      eventId: 11,
-      dataLayerKey: "key3",
-      variableName: "dlv - Variable 3",
-      error: {
-        message: "message3",
-        value: "val3",
-        condition: "condition3",
-        conditionValue: "conditionValue3"
-      }
-    }
-  ];
-
-  let elevar_gtm_tag_info = [
-    {
-      eventId: 7,
-      channel: "facebook",
-      tagName: "Facebook - Initiate Checkout",
-      variables: ["dlv - Variable 1", "dlv - Variable 2"]
-    },
-    {
-      eventId: 11,
-      tagName: "Facebook - Add To Cart",
-      variables: ["dlv - Variable 2"]
-    }
-  ];
-
-  mock("copyFromWindow", variableName => {
-    switch (variableName) {
-      case "elevar_gtm_errors":
-        return elevar_gtm_errors;
-      case "elevar_gtm_tag_info":
-        return elevar_gtm_tag_info;
-      case mockData.dataLayerName:
-        return dataLayer;
-      default:
-        log("no object in mock window for variableName: ", variableName);
-    }
-  });
-
-  mock("addEventCallback", callback => {
-    callback("containerId");
-  });
-
-  mock("sendPixel", url => {
-    sentUrls.push(url);
-  });
-
-  /* ------------ TEST UTILITY FUNCTIONS ------------ */
-
-  const getQueryParams = (url, key) => {
-    const param = url
-      .split("?")[1]
-      .split("&")
-      .map(paramString => {
-        const keyAndVal = paramString.split("=");
-        return { key: keyAndVal[0], val: keyAndVal[1] };
-      })
-      .filter(param => param.key === key)[0];
-    if (!param) return undefined;
-    return param.val;
-  };
+setup: "const log = require(\"logToConsole\");\n\nconst sentUrls = [];\n\nlet mockData\
+  \ = {\n  customDataLayer: false,\n  dataLayerName: \"dataLayer\",\n  debugMode:\
+  \ false\n};\n\nlet dataLayer = [\n  {\n    event: \"gtm.dom\",\n    \"gtm.uniqueEventId\"\
+  : 3\n  },\n  {\n    \"gtm.start\": 1578412516211,\n    event: \"gtm.js\",\n    \"\
+  gtm.uniqueEventId\": 4\n  },\n  {\n    \"gtm.start\": 1578412516344,\n    event:\
+  \ \"gtm.js\",\n    \"gtm.uniqueEventId\": 7\n  },\n  {\n    event: \"gtm.load\"\
+  ,\n    \"gtm.uniqueEventId\": 11\n  }\n];\n\nlet elevar_gtm_errors = [\n  {\n  \
+  \  eventId: 7,\n    dataLayerKey: \"key1\",\n    variableName: \"dlv - Variable\
+  \ 1\",\n    error: {\n      message: \"message1\",\n      value: \"val1\",\n   \
+  \   condition: \"condition1\",\n      conditionValue: \"conditionValue1\"\n    }\n\
+  \  },\n  {\n    eventId: 11,\n    dataLayerKey: \"key2\",\n    variableName: \"\
+  dlv - Variable 2\",\n    error: {\n      message: \"message2\",\n      value: \"\
+  val2\",\n      condition: \"condition2\",\n      conditionValue: \"conditionValue2\"\
+  \n    }\n  },\n  {\n    eventId: 11,\n    dataLayerKey: \"key3\",\n    variableName:\
+  \ \"dlv - Variable 3\",\n    error: {\n      message: \"message3\",\n      value:\
+  \ \"val3\",\n      condition: \"condition3\",\n      conditionValue: \"conditionValue3\"\
+  \n    }\n  }\n];\n\nlet elevar_gtm_tag_info = [\n  {\n    eventId: 7,\n    channel:\
+  \ \"facebook\",\n    tagName: \"Facebook - Initiate Checkout\",\n    variables:\
+  \ [\"dlv - Variable 1\", \"dlv - Variable 2\"]\n  },\n  {\n    eventId: 11,\n  \
+  \  tagName: \"Facebook - Add To Cart\",\n    variables: [\"dlv - Variable 2\"]\n\
+  \  }\n];\n\nmock(\"copyFromWindow\", variableName => {\n  switch (variableName)\
+  \ {\n    case \"elevar_gtm_errors\":\n      return elevar_gtm_errors;\n    case\
+  \ \"elevar_gtm_tag_info\":\n      return elevar_gtm_tag_info;\n    case mockData.dataLayerName:\n\
+  \      return dataLayer;\n    default:\n      log(\"no object in mock window for\
+  \ variableName: \", variableName);\n  }\n});\n\nmock(\"addEventCallback\", callback\
+  \ => {\n  callback(\"GTM-12345678\");\n});\n\nmock(\"sendPixel\", url => {\n  sentUrls.push(url);\n\
+  });\n\n\nmock(\"getUrl\", () => {\n\treturn 'https://test.example.com/test-page/item?id=123&s=testing';\n\
+  });\n\n/* ------------ TEST UTILITY FUNCTIONS ------------ */\n\nconst getQueryParams\
+  \ = (url, key) => {\n  const param = url\n    .split(\"?\")[1]\n    .split(\"&\"\
+  )\n    .map(paramString => {\n      const keyAndVal = paramString.split(\"=\");\n\
+  \      return { key: keyAndVal[0], val: keyAndVal[1] };\n    })\n    .filter(param\
+  \ => param.key === key)[0];\n  if (!param) return undefined;\n  return param.val;\n\
+  };"
 
 
 ___NOTES___
