@@ -61,11 +61,6 @@ const TAG_INFO = "elevar_gtm_tag_info";
 const DATA_LAYER = "dataLayer";
 const PAGE_URL = getUrl();
 
-const onlyUnique = (arr) => {
-  if (!arr) return [];
-  return arr.filter((item, pos) => arr.indexOf(item) == pos);
-};
-
 const getEventName = (eventId, dataLayer) => {
   return dataLayer.reduce((item, curr) => {
     if (!item && curr["gtm.uniqueEventId"] === eventId) {
@@ -94,18 +89,15 @@ const getTagWithVariable = (tags, eventId, variableName) => {
     );
 };
 
-const getChannels = (tags) => {
-  if (!tags) return [];
-  const channels = tags.map(tag => tag.channel);
-  return onlyUnique(channels).join(",");
+const joinKey = (key) => (array) => {
+	if (!array) return [];
+  	return array
+  		.map(tag => tag[key])
+  		.join(",");
 };
 
-const getTagNames = (tags) => {
-  if (!tags) return [];
-  return tags
-    .map(tag => tag.tagName)
-    .join(",");
-};
+const getChannels = joinKey('channel');
+const getTagNames = joinKey('tagName');
 
 // Fires after all tags for the trigger have completed
 addEventCallback(function(containerId, _eventData) {
@@ -503,7 +495,7 @@ scenarios:
     \ \"Facebook - Conversion\",\n   \tvariables: ['dlv - Variable 1', 'dlv - Variable\
     \ 2'],\n}];\n\n// Call runCode to run the template's code.\nrunCode(mockData);\n\
     \nassertApi('gtmOnSuccess').wasCalled();\nassertThat(getQueryParams(sentUrls[0],\
-    \ 'channels')).isEqualTo('facebook');\nassertThat(\n  getQueryParams(sentUrls[0],\
+    \ 'channels')).isEqualTo('facebook%2Cfacebook');\nassertThat(\n  getQueryParams(sentUrls[0],\
     \ 'tag_names')\n).isEqualTo('Facebook%20-%20Initiate%20Checkout%2CFacebook%20-%20Conversion');\n\
     assertThat(sentUrls.length === 1).isTrue();"
 - name: PIXEL // Missing variable name from error
@@ -558,6 +550,20 @@ scenarios:
     assertApi('gtmOnSuccess').wasCalled();
     assertApi('sendPixel').wasNotCalled();
     assertThat(sentUrls.length === 0).isTrue();
+- name: PIXEL // Channel is sent per tag
+  code: "elevar_gtm_errors = [{\n  eventId: 7,\n  dataLayerKey: 'key',\n  variableName:\
+    \ 'dlv - Variable 1',\n  error: {\n    message: 'message',\n    value: 'val',\n\
+    \    condition: 'condition',\n    conditionValue: 'conditionValue'\n  }\n}];\n\
+    \nelevar_gtm_tag_info = [{\n\teventId: 7,\n  \tchannel: 'facebook',\n\ttagName:\
+    \ \"Facebook - Initiate Checkout\",\n  \tvariables: ['dlv - Variable 1', 'dlv\
+    \ - Variable 2'],\n}, {\n\teventId: 7,\n    channel: '',\n  \ttagName: \"Klaviyo\
+    \ - Conversion\",\n   \tvariables: ['dlv - Variable 1', 'dlv - Variable 2'],\n\
+    }, {\n\teventId: 7,\n    channel: 'snapchat',\n  \ttagName: \"Snapchat - Conversion\"\
+    ,\n   \tvariables: ['dlv - Variable 1'],\n}, {\n\teventId: 7,\n    channel: 'facebook',\n\
+    \  \ttagName: \"Facebook - Conversion\",\n   \tvariables: ['dlv - Variable 1'],\n\
+    }];\n\n// Call runCode to run the template's code.\nrunCode(mockData);\n\nassertApi('gtmOnSuccess').wasCalled();\n\
+    assertThat(getQueryParams(sentUrls[0], 'channels')).isEqualTo('facebook%2C%2Csnapchat%2Cfacebook');\n\
+    assertThat(sentUrls.length === 1).isTrue();"
 setup: "const log = require(\"logToConsole\");\n\nconst sentUrls = [];\n\nlet mockData\
   \ = {\n  customDataLayer: false,\n  dataLayerName: \"dataLayer\",\n  debugMode:\
   \ false\n};\n\nlet dataLayer = [\n  {\n    event: \"gtm.dom\",\n    \"gtm.uniqueEventId\"\
