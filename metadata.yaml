@@ -1,6 +1,8 @@
 homepage: "https://www.getelevar.com"
 documentation: "https://github.com/getelevar/gtm-monitoring-core/blob/master/README.md"
 versions:
+  - sha: 827d5ced972d152af92543a22eb7297b4594f04a
+    changeNotes: Send one channel per tag name instead of sending only unique channels to support mapping channel to tag.
   - sha: 57aa9b910a701ff7406e4da2deb3a3d02423d979
     changeNotes: Add page url to pixel to fix issue with Safari ITP and encode pixel components.
   - sha: 77f158f61ea9ef5029e301ec041a93eba0b3504c
