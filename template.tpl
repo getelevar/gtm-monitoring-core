@@ -54,12 +54,13 @@ const sendPixel = require("sendPixel");
 const encodeUriComponent = require("encodeUriComponent");
 const getUrl = require("getUrl");
 const makeString = require("makeString");
-
 /**
  * This is required even though it wouldn't be used here
  * because the tests fail without it.
  */
 const log = require("logToConsole");
+
+const VERSION = '1.0';
 
 const VALIDATION_ERRORS = "elevar_gtm_errors";
 const TAG_INFO = "elevar_gtm_tag_info";
@@ -76,36 +77,98 @@ const getEventName = (eventId, dataLayer) => {
 };
 
 /**
-* This function gets the tag information if it exists for the event & variable combo
-* 
-* @param tags: Array of tag information that have fired since the last monitoring pixel was sent
-* @param eventId: The id of the event the current error occurred on
-* @param variableName: The GTM name of the variable that errored
-*/
+ * This function gets the tag information if it exists for the event & variable combo
+ *
+ * @param tags: Array of tag information that have fired since the last monitoring pixel was sent
+ * @param eventId: The id of the event the current error occurred on
+ * @param variableName: The GTM name of the variable that errored
+ */
 const getTagWithVariable = (tags, eventId, variableName) => {
   if (!tags) return [];
   return tags
-    .filter(tag => tag.eventId === eventId)
+    .filter((tag) => tag.eventId === eventId)
     .filter(
-      tag =>
+      (tag) =>
         tag.variables &&
         tag.variables.length &&
         tag.variables.indexOf(variableName) !== -1
     );
 };
 
-const joinKey = (key) => (array) => {
-	if (!array) return [];
-  	return array
-  		.map(tag => tag[key])
-  		.join(",");
+const makeUrl = (
+  ctid,
+  idx,
+  event_name,
+  variable_name,
+  channels,
+  tag_names,
+  dlKey,
+  dlValue,
+  cond,
+  condValue,
+  url
+) => {
+  const enc = (value) => encodeUriComponent(makeString(value));
+
+  return (
+    "https://monitoring.getelevar.com/track.gif?vc=" +
+    enc(VERSION) +
+    "&ctid=" +
+    enc(ctid) +
+    "&idx=" +
+    enc(idx) +
+    "&event_name=" +
+    enc(event_name) +
+    "&variable_name=" +
+    enc(variable_name) +
+    "&channels=" +
+    enc(channels) +
+    "&tag_names=" +
+    enc(tag_names) +
+    "&dlKey=" +
+    enc(dlKey) +
+    "&dlValue=" +
+    enc(dlValue) +
+    "&cond=" +
+    enc(cond) +
+    "&condValue=" +
+    enc(condValue) +
+    "&url=" +
+    enc(url)
+  );
 };
 
-const getChannels = joinKey('channel');
-const getTagNames = joinKey('tagName');
+const sendPixelPerTag = (containerId, index, eventName, errorEvent, page_url, tags) => {
+  const sendPixelForTag = (tag) => {
+    let url = makeUrl(
+      containerId,
+      index,
+      eventName,
+      errorEvent.variableName,
+      tag && tag.channel ? tag.channel : "",
+      tag && tag.tagName ? tag.tagName : "",
+      errorEvent.dataLayerKey,
+      errorEvent.error.value,
+      errorEvent.error.condition,
+      errorEvent.error.conditionValue,
+      page_url
+    );
+
+    log("pixel url = ", url);
+    if (!data.debugMode) {
+      sendPixel(url);
+    }
+  };
+
+  if (tags.length > 0) {
+    tags.forEach(sendPixelForTag);
+  } else {
+    sendPixelForTag(undefined);
+  }
+};
 
 // Fires after all tags for the trigger have completed
-addEventCallback(function(containerId, _eventData) {
+addEventCallback(function (containerId, _eventData) {
   const dataLayer = copyFromWindow(DATA_LAYER);
   const errors = copyFromWindow(VALIDATION_ERRORS);
   const tagInfo = copyFromWindow(TAG_INFO);
@@ -123,41 +186,14 @@ addEventCallback(function(containerId, _eventData) {
         errorEvent.eventId,
         errorEvent.variableName
       );
-      const channels = getChannels(tagsUsed);
-      const tagNames = getTagNames(tagsUsed);
-
-      let url = "https://monitoring.getelevar.com/track.gif?ctid=" +
-          encodeUriComponent(makeString(containerId)) +
-          "&idx=" +
-          encodeUriComponent(makeString(index)) +
-          "&event_name=" +
-          encodeUriComponent(makeString(eventName)) +
-          "&variable_name=" +
-          encodeUriComponent(makeString(errorEvent.variableName)) +
-          "&channels=" +
-          encodeUriComponent(makeString(channels)) +
-          "&tag_names=" +
-          encodeUriComponent(makeString(tagNames)) +
-          "&dlKey=" +
-          encodeUriComponent(makeString(errorEvent.dataLayerKey)) +
-          "&dlValue=" +
-          encodeUriComponent(makeString(errorEvent.error.value)) +
-          "&cond=" +
-          encodeUriComponent(makeString(errorEvent.error.condition)) +
-          "&condValue=" +
-          encodeUriComponent(makeString(errorEvent.error.conditionValue)) +
-          "&url=" +
-          encodeUriComponent(makeString(PAGE_URL));
-
-      log("pixel url = ", url);
-      if (!data.debugMode) {
-        sendPixel(url);
-      }
+      
+      sendPixelPerTag(containerId, index, eventName ? eventName : '', errorEvent, PAGE_URL, tagsUsed);
     });
   }
 });
 
 data.gtmOnSuccess();
+
 
 
 ___WEB_PERMISSIONS___
@@ -414,11 +450,77 @@ scenarios:
     ).isEqualTo(undefined);
 - name: PIXEL // Multiple Errors and Tag data
   code: |-
+    dataLayer = [
+      {
+        event: "gtm.dom",
+        "gtm.uniqueEventId": 3
+      },
+      {
+        "gtm.start": 1578412516344,
+        event: "gtm.js",
+        "gtm.uniqueEventId": 7
+      },
+      {
+        event: "gtm.load",
+        "gtm.uniqueEventId": 11
+      }
+    ];
+
+    elevar_gtm_errors = [
+      {
+        eventId: 7,
+        dataLayerKey: "key1",
+        variableName: "dlv - Variable 1",
+        error: {
+          message: "message1",
+          value: "val1",
+          condition: "condition1",
+          conditionValue: "conditionValue1"
+        }
+      },
+      {
+        eventId: 11,
+        dataLayerKey: "key2",
+        variableName: "dlv - Variable 2",
+        error: {
+          message: "message2",
+          value: "val2",
+          condition: "condition2",
+          conditionValue: "conditionValue2"
+        }
+      },
+      {
+        eventId: 11,
+        dataLayerKey: "key3",
+        variableName: "dlv - Variable 3",
+        error: {
+          message: "message3",
+          value: "val3",
+          condition: "condition3",
+          conditionValue: "conditionValue3"
+        }
+      }
+    ];
+
+    elevar_gtm_tag_info = [
+      {
+        eventId: 7,
+        channel: "facebook",
+        tagName: "Facebook - Initiate Checkout",
+        variables: ["dlv - Variable 1", "dlv - Variable 2"]
+      },
+      {
+        eventId: 11,
+        tagName: "Facebook - Add To Cart",
+        variables: ["dlv - Variable 2"]
+      }
+    ];
+
     // Call runCode to run the template's code.
     runCode(mockData);
 
     assertApi('copyFromWindow').wasCalled();
-    assertThat(sentUrls.length === 3).isTrue();
+    assertThat(sentUrls).hasLength(3);
 
     // -----------------------------------------------------------------
 
@@ -445,6 +547,7 @@ scenarios:
     assertThat(getQueryParams(sentUrls[1], 'dlValue')).isEqualTo('val2');
     assertThat(getQueryParams(sentUrls[1], 'cond')).isEqualTo('condition2');
     assertThat(getQueryParams(sentUrls[1], 'condValue')).isEqualTo('conditionValue2');
+
 
     // -----------------------------------------------------------------
 
@@ -487,7 +590,7 @@ scenarios:
     // Verify that the tag finished successfully.
     assertApi('gtmOnSuccess').wasCalled();
     assertThat(sentUrls.length === 1).isTrue();
-    assertThat(getQueryParams(sentUrls[0], 'event_name')).isEqualTo('false');
+    assertThat(getQueryParams(sentUrls[0], 'event_name')).isEqualTo('');
 - name: PIXEL // No tags data match
   code: |-
     elevar_gtm_errors = [{
@@ -519,10 +622,11 @@ scenarios:
     \ 1', 'dlv - Variable 2'],\n}, {\n\teventId: 7,\n    channel: 'facebook',\n  \t\
     tagName: \"Facebook - Conversion\",\n   \tvariables: ['dlv - Variable 1', 'dlv\
     \ - Variable 2'],\n}];\n\n// Call runCode to run the template's code.\nrunCode(mockData);\n\
-    \nassertApi('gtmOnSuccess').wasCalled();\nassertThat(getQueryParams(sentUrls[0],\
-    \ 'channels')).isEqualTo('facebook%2Cfacebook');\nassertThat(\n  getQueryParams(sentUrls[0],\
-    \ 'tag_names')\n).isEqualTo('Facebook%20-%20Initiate%20Checkout%2CFacebook%20-%20Conversion');\n\
-    assertThat(sentUrls.length === 1).isTrue();"
+    \nassertApi('gtmOnSuccess').wasCalled();\nassertThat(sentUrls).hasLength(2);\n\
+    assertThat(getQueryParams(sentUrls[0], 'channels')).isEqualTo('facebook');\nassertThat(\n\
+    \  getQueryParams(sentUrls[0], 'tag_names')\n).isEqualTo('Facebook%20-%20Initiate%20Checkout');\n\
+    assertThat(getQueryParams(sentUrls[1], 'channels')).isEqualTo('facebook');\nassertThat(\n\
+    \  getQueryParams(sentUrls[1], 'tag_names')\n).isEqualTo('Facebook%20-%20Conversion');"
 - name: PIXEL // Missing variable name from error
   code: "elevar_gtm_errors = [{\n  eventId: 7,\n  dataLayerKey: 'key',\n  variableName:\
     \ '',\n  error: {\n    message: 'message',\n    value: 'val',\n    condition:\
@@ -653,16 +757,6 @@ scenarios:
     assertApi('gtmOnSuccess').wasCalled();
     assertThat(sentUrls.length === 1).isTrue();
     assertThat(getQueryParams(sentUrls[0], 'variable_name')).isEqualTo("undefined");
-- name: GENERAL // Debug mode
-  code: |-
-    mockData.debugMode = true;
-
-    runCode(mockData);
-
-    // Verify that the tag finished successfully.
-    assertApi('gtmOnSuccess').wasCalled();
-    assertApi('sendPixel').wasNotCalled();
-    assertThat(sentUrls.length === 0).isTrue();
 - name: PIXEL // Channel is sent per tag
   code: "elevar_gtm_errors = [{\n  eventId: 7,\n  dataLayerKey: 'key',\n  variableName:\
     \ 'dlv - Variable 1',\n  error: {\n    message: 'message',\n    value: 'val',\n\
@@ -675,8 +769,64 @@ scenarios:
     ,\n   \tvariables: ['dlv - Variable 1'],\n}, {\n\teventId: 7,\n    channel: 'facebook',\n\
     \  \ttagName: \"Facebook - Conversion\",\n   \tvariables: ['dlv - Variable 1'],\n\
     }];\n\n// Call runCode to run the template's code.\nrunCode(mockData);\n\nassertApi('gtmOnSuccess').wasCalled();\n\
-    assertThat(getQueryParams(sentUrls[0], 'channels')).isEqualTo('facebook%2C%2Csnapchat%2Cfacebook');\n\
-    assertThat(sentUrls.length === 1).isTrue();"
+    assertThat(sentUrls).hasLength(4);\nassertThat(getQueryParams(sentUrls[0], 'channels')).isEqualTo('facebook');\n\
+    assertThat(getQueryParams(sentUrls[1], 'channels')).isEqualTo('');\nassertThat(getQueryParams(sentUrls[2],\
+    \ 'channels')).isEqualTo('snapchat');\nassertThat(getQueryParams(sentUrls[3],\
+    \ 'channels')).isEqualTo('facebook');"
+- name: PIXEL // One pixel per tag
+  code: "elevar_gtm_errors = [{\n  eventId: 7,\n  dataLayerKey: 'key',\n  variableName:\
+    \ 'dlv - Variable 1',\n  error: {\n    message: 'message',\n    value: 'val',\n\
+    \    condition: 'condition',\n    conditionValue: 'conditionValue'\n  }\n}, {\n\
+    \  eventId: 7,\n  dataLayerKey: 'key2',\n  variableName: 'dlv - Variable 2',\n\
+    \  error: {\n    message: 'message',\n    value: 'val',\n    condition: 'condition',\n\
+    \    conditionValue: 'conditionValue'\n  }\n}, {\n  eventId: 7,\n  dataLayerKey:\
+    \ 'key3',\n  variableName: 'dlv - Variable 3',\n  error: {\n    message: 'message',\n\
+    \    value: 'val',\n    condition: 'condition',\n    conditionValue: 'conditionValue'\n\
+    \  }\n}];\n\nelevar_gtm_tag_info = [{\n\teventId: 7,\n  \tchannel: 'facebook',\n\
+    \ttagName: \"Facebook - Initiate Checkout\",\n  \tvariables: ['dlv - Variable\
+    \ 1', 'dlv - Variable 2'],\n}, {\n\teventId: 7,\n  \ttagName: \"Klaviyo - Conversion\"\
+    ,\n   \tvariables: ['dlv - Variable 1', 'dlv - Variable 2'],\n}, {\n\teventId:\
+    \ 7,\n    channel: 'snapchat',\n  \ttagName: \"Snapchat - Conversion\",\n   \t\
+    variables: ['dlv - Variable 1'],\n}];\n\n// Call runCode to run the template's\
+    \ code.\nrunCode(mockData);\n\nassertApi('gtmOnSuccess').wasCalled();\nassertThat(sentUrls).hasLength(6);\n\
+    assertThat(getQueryParams(sentUrls[0], 'tag_names')).isEqualTo('Facebook%20-%20Initiate%20Checkout');\n\
+    assertThat(getQueryParams(sentUrls[1], 'tag_names')).isEqualTo('Klaviyo%20-%20Conversion');\n\
+    assertThat(getQueryParams(sentUrls[2], 'tag_names')).isEqualTo('Snapchat%20-%20Conversion');\n\
+    assertThat(getQueryParams(sentUrls[3], 'tag_names')).isEqualTo('Facebook%20-%20Initiate%20Checkout');\n\
+    assertThat(getQueryParams(sentUrls[4], 'tag_names')).isEqualTo('Klaviyo%20-%20Conversion');\n\
+    assertThat(getQueryParams(sentUrls[5], 'tag_names')).isEqualTo('');"
+- name: PIXEL // Contains Version
+  code: |
+    elevar_gtm_errors = [{
+      eventId: 7,
+      dataLayerKey: 'key',
+      variableName: 'dlv - Variable 1',
+      error: {
+        message: 'message',
+        value: 'val',
+        condition: 'condition',
+        conditionValue: 'conditionValue'
+      }
+    }];
+
+    elevar_gtm_tag_info = [];
+
+    // Call runCode to run the template's code.
+    runCode(mockData);
+
+    assertApi('gtmOnSuccess').wasCalled();
+    assertThat(sentUrls).hasLength(1);
+    assertThat(getQueryParams(sentUrls[0], 'vc')).isNotEmpty();
+- name: GENERAL // Debug mode
+  code: |-
+    mockData.debugMode = true;
+
+    runCode(mockData);
+
+    // Verify that the tag finished successfully.
+    assertApi('gtmOnSuccess').wasCalled();
+    assertApi('sendPixel').wasNotCalled();
+    assertThat(sentUrls.length === 0).isTrue();
 setup: "const log = require(\"logToConsole\");\n\nconst sentUrls = [];\n\nlet mockData\
   \ = {\n  customDataLayer: false,\n  dataLayerName: \"dataLayer\",\n  debugMode:\
   \ false\n};\n\nlet dataLayer = [\n  {\n    event: \"gtm.dom\",\n    \"gtm.uniqueEventId\"\
