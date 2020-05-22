@@ -60,7 +60,7 @@ const makeString = require("makeString");
  */
 const log = require("logToConsole");
 
-const VERSION = '1.0';
+const VERSION = '1.1';
 
 const VALIDATION_ERRORS = "elevar_gtm_errors";
 const TAG_INFO = "elevar_gtm_tag_info";
@@ -68,12 +68,10 @@ const DATA_LAYER = "dataLayer";
 const PAGE_URL = getUrl();
 
 const getEventName = (eventId, dataLayer) => {
-  return dataLayer.reduce((item, curr) => {
-    if (!item && curr["gtm.uniqueEventId"] === eventId) {
-      return curr.event;
-    }
-    return item;
-  }, false);
+  const items = dataLayer.filter(item => 
+    item["gtm.uniqueEventId"] === eventId
+  );
+  return items.length > 0 ? items[0].event : false;
 };
 
 /**
@@ -180,7 +178,10 @@ addEventCallback(function (containerId, _eventData) {
   // Send Pixel if there are errors
   if (errors && errors.length > 0) {
     errors.forEach((errorEvent, index) => {
-      const eventName = getEventName(errorEvent.eventId, dataLayer);
+      const eventName = errorEvent.eventName ?
+            errorEvent.eventName :
+            getEventName(errorEvent.eventId, dataLayer);
+
       const tagsUsed = getTagWithVariable(
         tagInfo,
         errorEvent.eventId,
@@ -193,7 +194,6 @@ addEventCallback(function (containerId, _eventData) {
 });
 
 data.gtmOnSuccess();
-
 
 
 ___WEB_PERMISSIONS___
@@ -627,20 +627,6 @@ scenarios:
     \  getQueryParams(sentUrls[0], 'tag_names')\n).isEqualTo('Facebook%20-%20Initiate%20Checkout');\n\
     assertThat(getQueryParams(sentUrls[1], 'channels')).isEqualTo('facebook');\nassertThat(\n\
     \  getQueryParams(sentUrls[1], 'tag_names')\n).isEqualTo('Facebook%20-%20Conversion');"
-- name: PIXEL // Missing variable name from error
-  code: "elevar_gtm_errors = [{\n  eventId: 7,\n  dataLayerKey: 'key',\n  variableName:\
-    \ '',\n  error: {\n    message: 'message',\n    value: 'val',\n    condition:\
-    \ 'condition',\n    conditionValue: 'conditionValue'\n  }\n}];\n\nelevar_gtm_tag_info\
-    \ = [{\n\teventId: 7,\n\ttagName: \"Facebook - Initiate Checkout\",\n  \tvariables:\
-    \ ['dlv - Variable 1', 'dlv - Variable 2'],\n}, {\n\teventId: 7,\n  \ttagName:\
-    \ \"Facebook - Conversion\",\n   \tvariables: ['dlv - Variable 1', 'dlv - Variable\
-    \ 2'],\n}];\n\n// Call runCode to run the template's code.\nrunCode(mockData);\n\
-    \nassertApi('gtmOnSuccess').wasCalled();\nassertThat(getQueryParams(sentUrls[0],\
-    \ 'tag_names')).isEqualTo('');\nassertThat(getQueryParams(sentUrls[0], 'variable_name')).isEqualTo('');\n\
-    assertThat(getQueryParams(sentUrls[0], 'dlKey')).isEqualTo('key');\nassertThat(getQueryParams(sentUrls[0],\
-    \ 'dlValue')).isEqualTo('val');\nassertThat(getQueryParams(sentUrls[0], 'cond')).isEqualTo('condition');\n\
-    assertThat(getQueryParams(sentUrls[0], 'condValue')).isEqualTo('conditionValue');\n\
-    assertThat(sentUrls.length === 1).isTrue();"
 - name: PIXEL // No tag info in window
   code: |-
     elevar_gtm_errors = [{
@@ -817,6 +803,40 @@ scenarios:
     assertApi('gtmOnSuccess').wasCalled();
     assertThat(sentUrls).hasLength(1);
     assertThat(getQueryParams(sentUrls[0], 'vc')).isNotEmpty();
+- name: PIXEL // Use error eventName if provided
+  code: |
+    elevar_gtm_errors = [{
+      eventId: 7,
+      eventName: "Custom Event Name",
+      dataLayerKey: 'key',
+      variableName: 'dlv - Variable 1',
+      error: {
+        message: 'message',
+        value: 'val',
+        condition: 'condition',
+        conditionValue: 'conditionValue'
+      }
+    }, {
+      eventId: 11,
+      dataLayerKey: 'key',
+      variableName: 'dlv - Variable 1',
+      error: {
+        message: 'message',
+        value: 'val',
+        condition: 'condition',
+        conditionValue: 'conditionValue'
+      }
+    }];
+
+    elevar_gtm_tag_info = [];
+
+    // Call runCode to run the template's code.
+    runCode(mockData);
+
+    assertApi('gtmOnSuccess').wasCalled();
+    assertThat(sentUrls).hasLength(2);
+    assertThat(getQueryParams(sentUrls[0], 'event_name')).isEqualTo("Custom%20Event%20Name");
+    assertThat(getQueryParams(sentUrls[1], 'event_name')).isEqualTo("gtm.load");
 - name: GENERAL // Debug mode
   code: |-
     mockData.debugMode = true;
