@@ -104,13 +104,16 @@ const makeUrl = (
   dlValue,
   cond,
   condValue,
-  url
+  url,
+  validationVersion
 ) => {
   const enc = (value) => encodeUriComponent(makeString(value));
 
   return (
     "https://monitoring.getelevar.com/track.gif?vc=" +
     enc(VERSION) +
+    "&vv=" +
+    enc(validationVersion) +
     "&ctid=" +
     enc(ctid) +
     "&idx=" +
@@ -136,7 +139,7 @@ const makeUrl = (
   );
 };
 
-const sendPixelPerTag = (containerId, index, eventName, errorEvent, page_url, tags) => {
+const sendPixelPerTag = (containerId, index, eventName, errorEvent, page_url, tags, validationVersion) => {
   const sendPixelForTag = (tag) => {
     let url = makeUrl(
       containerId,
@@ -149,7 +152,8 @@ const sendPixelPerTag = (containerId, index, eventName, errorEvent, page_url, ta
       errorEvent.error.value,
       errorEvent.error.condition,
       errorEvent.error.conditionValue,
-      page_url
+      page_url,
+      validationVersion
     );
 
     log("pixel url = ", url);
@@ -188,7 +192,7 @@ addEventCallback(function (containerId, _eventData) {
         errorEvent.variableName
       );
       
-      sendPixelPerTag(containerId, index, eventName ? eventName : '', errorEvent, PAGE_URL, tagsUsed);
+      sendPixelPerTag(containerId, index, eventName ? eventName : '', errorEvent, PAGE_URL, tagsUsed, errorEvent.version || "1.0");
     });
   }
 });
@@ -781,9 +785,20 @@ scenarios:
     assertThat(getQueryParams(sentUrls[3], 'tag_names')).isEqualTo('Facebook%20-%20Initiate%20Checkout');\n\
     assertThat(getQueryParams(sentUrls[4], 'tag_names')).isEqualTo('Klaviyo%20-%20Conversion');\n\
     assertThat(getQueryParams(sentUrls[5], 'tag_names')).isEqualTo('');"
-- name: PIXEL // Contains Version
+- name: PIXEL // Contains Versions
   code: |
     elevar_gtm_errors = [{
+      eventId: 7,
+      dataLayerKey: 'key',
+      variableName: 'dlv - Variable 1',
+      error: {
+        message: 'message',
+        value: 'val',
+        condition: 'condition',
+        conditionValue: 'conditionValue'
+      }
+    }, {
+      version: "1.1",
       eventId: 7,
       dataLayerKey: 'key',
       variableName: 'dlv - Variable 1',
@@ -801,8 +816,10 @@ scenarios:
     runCode(mockData);
 
     assertApi('gtmOnSuccess').wasCalled();
-    assertThat(sentUrls).hasLength(1);
+    assertThat(sentUrls).hasLength(2);
     assertThat(getQueryParams(sentUrls[0], 'vc')).isNotEmpty();
+    assertThat(getQueryParams(sentUrls[0], 'vv')).isEqualTo("1.0");
+    assertThat(getQueryParams(sentUrls[1], 'vv')).isEqualTo("1.1");
 - name: PIXEL // Use error eventName if provided
   code: |
     elevar_gtm_errors = [{
