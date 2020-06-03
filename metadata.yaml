@@ -1,6 +1,8 @@
 homepage: "https://www.getelevar.com"
 documentation: "https://github.com/getelevar/gtm-monitoring-core/blob/master/README.md"
 versions:
+  - sha: b806bff215aa14ecb03bcd764e98f40ece2aedf5
+    changeNotes: Send eventName provided by error instead of trying to get it from the dataLayer.
   - sha: 99a0e6d72d7f26686ca2709c2b903c8674ee4083
     changeNotes: Add white background to icon image to remove blue background in template addition screen.
   - sha: 090d13ce04e86c3b46d6971431beb9187675d1d8
